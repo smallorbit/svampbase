@@ -70,6 +70,18 @@ npm run build
 
 The output in `dist/` is a fully static PWA — host it on any static file server. Install it to your home screen from the browser for an app-like experience.
 
+## Backend (Claude sessions)
+
+To manage Claude Code sessions from the app, run the local backend:
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+The backend runs on `http://localhost:3001`. With it running, you can create and resume Claude Code sessions linked to tasks directly from the task modal.
+
 ## Tech stack
 
 - [React](https://react.dev) + TypeScript

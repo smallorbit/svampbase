@@ -2,11 +2,13 @@ import { useState, useCallback } from 'react';
 import type { Task, TaskStatus } from './lib/types';
 import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
+import { useSessions } from './hooks/useSessions';
 import { Header } from './components/Header';
 import { Board } from './components/Board';
 import { TaskModal } from './components/TaskModal';
 import { SearchModal } from './components/SearchModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { SessionsPanel } from './components/SessionsPanel';
 
 export default function App() {
   const {
@@ -22,9 +24,12 @@ export default function App() {
   } = useTasks();
 
   const { alerts, dismissAlert } = useReminders(tasks);
+  const { sessions } = useSessions();
+  const hasActiveSessions = sessions.some((s) => s.status === 'active');
 
   const [modalTask, setModalTask] = useState<Task | null | undefined>(undefined); // undefined = closed, null = new
   const [showSearch, setShowSearch] = useState(false);
+  const [showSessionsPanel, setShowSessionsPanel] = useState(false);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -87,6 +92,8 @@ export default function App() {
         onExport={exportJSON}
         onImport={handleImportRequest}
         onNewTask={openNewTask}
+        onSessionsClick={() => setShowSessionsPanel((v) => !v)}
+        hasActiveSessions={hasActiveSessions}
       />
 
       <Board
@@ -144,6 +151,10 @@ export default function App() {
           onConfirm={() => setImportError(null)}
           onCancel={() => setImportError(null)}
         />
+      )}
+
+      {showSessionsPanel && (
+        <SessionsPanel onClose={() => setShowSessionsPanel(false)} />
       )}
     </div>
   );

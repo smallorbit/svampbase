@@ -28,3 +28,7 @@ npm-debug.log*
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Server
+server/data/sessions.json
+server/node_modules/

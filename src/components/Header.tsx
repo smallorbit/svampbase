@@ -5,9 +5,11 @@ interface HeaderProps {
   onExport: () => void;
   onImport: (file: File) => void;
   onNewTask: () => void;
+  onSessionsClick: () => void;
+  hasActiveSessions?: boolean;
 }
 
-export function Header({ onSearchClick, onExport, onImport, onNewTask }: HeaderProps) {
+export function Header({ onSearchClick, onExport, onImport, onNewTask, onSessionsClick, hasActiveSessions }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleImportClick() {
@@ -62,6 +64,17 @@ export function Header({ onSearchClick, onExport, onImport, onNewTask }: HeaderP
           title="Import tasks from JSON"
         >
           Import
+        </button>
+
+        <button
+          onClick={onSessionsClick}
+          className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-1.5"
+          title="Manage Claude sessions"
+        >
+          {hasActiveSessions && (
+            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+          )}
+          Sessions
         </button>
 
         <input

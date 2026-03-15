@@ -9,8 +9,10 @@ import type {
 } from '../lib/types';
 import { nanoid, formatRelativeTime, STATUS_LABELS, REMINDER_LABELS, computeReminderFiresAt } from '../lib/utils';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useSessions } from '../hooks/useSessions';
+import type { Session } from '../lib/sessionTypes';
 
-type Tab = 'details' | 'context' | 'history' | 'related';
+type Tab = 'details' | 'context' | 'history' | 'related' | 'sessions';
 
 interface TaskModalProps {
   task: Task | null; // null = create mode
@@ -82,6 +84,12 @@ export function TaskModal({
 
   // Delete confirm
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Sessions tab
+  const { sessions, loading: sessionsLoading, error: sessionsError, createSession, updateSession: updateSessionHook, launchSession } = useSessions(task?.id);
+  const [newSessionName, setNewSessionName] = useState('');
+  const [newSessionNotes, setNewSessionNotes] = useState('');
+  const [newSessionLaunch, setNewSessionLaunch] = useState(false);
 
   // Import confirm
   const [showImportConfirm, setShowImportConfirm] = useState(false);
@@ -182,11 +190,14 @@ export function TaskModal({
 
   const relatedTasks = allTasks.filter((t) => relatedTaskIds.includes(t.id));
 
+  const sessionCount = sessions.length;
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'details', label: 'Details' },
     { id: 'context', label: `Context${links.length + notes.length + screenshots.length > 0 ? ` (${links.length + notes.length + screenshots.length})` : ''}` },
     { id: 'history', label: 'History' },
     { id: 'related', label: `Related${relatedTaskIds.length > 0 ? ` (${relatedTaskIds.length})` : ''}` },
+    { id: 'sessions', label: `Sessions${sessionCount > 0 ? ` (${sessionCount})` : ''}` },
   ];
 
   return (
@@ -580,6 +591,126 @@ export function TaskModal({
                     )}
                   </div>
                 </section>
+              </div>
+            )}
+
+            {activeTab === 'sessions' && (
+              <div className="space-y-4">
+                {sessionsError && (
+                  <div className="bg-slate-900/60 border border-slate-700 rounded p-3 text-slate-500 text-xs">
+                    Start the backend server to manage Claude sessions (
+                    <code className="font-mono text-slate-400">cd server &amp;&amp; npm run dev</code>
+                    )
+                  </div>
+                )}
+
+                {!sessionsError && sessionsLoading && (
+                  <p className="text-slate-500 text-sm text-center py-4">Loading sessions...</p>
+                )}
+
+                {!sessionsError && !sessionsLoading && sessions.length === 0 && (
+                  <p className="text-slate-500 text-sm text-center py-4">No sessions linked to this task</p>
+                )}
+
+                {!sessionsError && sessions.map((session: Session) => (
+                  <div key={session.id} className="bg-slate-900/60 border border-slate-700 rounded p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                        session.status === 'active' ? 'bg-green-400' :
+                        session.status === 'paused' ? 'bg-yellow-400' : 'bg-slate-500'
+                      }`} />
+                      <span className="font-mono text-xs text-slate-200 flex-1 truncate">{session.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        session.status === 'active' ? 'bg-green-900/60 text-green-300' :
+                        session.status === 'paused' ? 'bg-yellow-900/60 text-yellow-300' :
+                        'bg-slate-700 text-slate-400'
+                      }`}>
+                        {session.status}
+                      </span>
+                    </div>
+                    <p className="text-slate-500 text-xs">
+                      Last launched: {session.lastLaunchedAt
+                        ? formatRelativeTime(session.lastLaunchedAt)
+                        : 'Never'}
+                    </p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => launchSession(session.id)}
+                        className="bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded transition-colors"
+                      >
+                        Launch
+                      </button>
+                      {session.status === 'active' && (
+                        <button
+                          onClick={() => updateSessionHook(session.id, { status: 'paused' })}
+                          className="bg-yellow-900/50 hover:bg-yellow-800/60 text-yellow-300 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                          Pause
+                        </button>
+                      )}
+                      {session.status !== 'ended' && (
+                        <button
+                          onClick={() => updateSessionHook(session.id, { status: 'ended' })}
+                          className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                          End
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {!sessionsError && !isNew && task && (
+                  <section className="border-t border-slate-700 pt-4">
+                    <h3 className="text-slate-300 text-sm font-semibold mb-2">New Session</h3>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={newSessionName}
+                        onChange={(e) => setNewSessionName(e.target.value)}
+                        placeholder="Auto-generated if blank"
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      />
+                      <textarea
+                        value={newSessionNotes}
+                        onChange={(e) => setNewSessionNotes(e.target.value)}
+                        placeholder="Notes (optional)"
+                        rows={2}
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+                      />
+                      <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newSessionLaunch}
+                          onChange={(e) => setNewSessionLaunch(e.target.checked)}
+                          className="rounded"
+                        />
+                        Open in Terminal immediately
+                      </label>
+                      <button
+                        onClick={async () => {
+                          if (!task) return;
+                          await createSession({
+                            name: newSessionName.trim() || undefined,
+                            taskIds: [task.id],
+                            notes: newSessionNotes.trim() || undefined,
+                            launch: newSessionLaunch,
+                          });
+                          setNewSessionName('');
+                          setNewSessionNotes('');
+                          setNewSessionLaunch(false);
+                        }}
+                        className="bg-blue-700 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded transition-colors"
+                      >
+                        Create Session
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                {isNew && (
+                  <p className="text-slate-500 text-xs text-center py-2">Save the task first to manage sessions</p>
+                )}
               </div>
             )}
           </div>
