@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Task, TaskStatus } from './lib/types';
 import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
@@ -36,6 +36,16 @@ export default function App() {
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Keep the open modal in sync when the underlying task is updated externally
+  // (e.g. changeTaskStatus updates the tasks array but modalTask is a stale reference)
+  useEffect(() => {
+    setModalTask((prev) => {
+      if (!prev) return prev;
+      const fresh = tasks.find((t) => t.id === (prev as Task).id);
+      return fresh ?? prev;
+    });
+  }, [tasks]);
 
   const openTask = useCallback((task: Task) => {
     setModalTask(task);

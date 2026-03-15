@@ -613,14 +613,23 @@ export function TaskModal({
                   <p className="text-slate-500 text-sm text-center py-4">No sessions linked to this task</p>
                 )}
 
-                {!sessionsError && sessions.map((session: Session) => (
-                  <div key={session.id} className="bg-slate-900/60 border border-slate-700 rounded p-3 space-y-2">
+                {!sessionsError && sessions.map((session: Session) => {
+                  // Ghost session: created before this task existed — likely linked to a
+                  // previous task that had the same TASK-NNN id before tasks were cleared.
+                  const isGhost = task && session.createdAt < task.createdAt;
+                  return (
+                  <div key={session.id} className={`rounded p-3 space-y-2 border ${isGhost ? 'bg-slate-900/30 border-slate-700/50 opacity-60' : 'bg-slate-900/60 border-slate-700'}`}>
                     <div className="flex items-center gap-2">
                       <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
                         session.status === 'active' ? 'bg-green-400' :
                         session.status === 'paused' ? 'bg-yellow-400' : 'bg-slate-500'
                       }`} />
-                      <span className="font-mono text-xs text-slate-200 flex-1 truncate">{session.name}</span>
+                        <span className="font-mono text-xs text-slate-200 flex-1 truncate">{session.name}</span>
+                      {isGhost && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400" title="This session was created before this task — it may belong to a previous task with the same ID">
+                          ghost
+                        </span>
+                      )}
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                         session.status === 'active' ? 'bg-green-900/60 text-green-300' :
                         session.status === 'paused' ? 'bg-yellow-900/60 text-yellow-300' :
@@ -660,7 +669,8 @@ export function TaskModal({
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 {!sessionsError && !isNew && task && (
                   <section className="border-t border-slate-700 pt-4">
