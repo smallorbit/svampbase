@@ -103,7 +103,7 @@ The output in `dist/` is a static PWA. Host it on any static file server and ins
 - [Express](https://expressjs.com) + TypeScript + [tsx](https://github.com/privatenumber/tsx)
 - Plain JSON files for storage (`server/data/`)
 - [multer](https://github.com/expressjs/multer) for file uploads
-- `osascript` for launching Terminal.app (macOS only)
+- Terminal launching via `osascript` (macOS), `cmd` (Windows), or auto-detected emulator (Linux: gnome-terminal, konsole, xfce4-terminal, xterm)
 
 ---
 
