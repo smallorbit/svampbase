@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 interface HeaderProps {
   onSearchClick: () => void;
@@ -12,17 +12,29 @@ interface HeaderProps {
 
 export function Header({ onSearchClick, onExport, onImport, onNewTask, onSessionsClick, onWeeklySummary, hasActiveSessions }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  function handleImportClick() {
-    fileInputRef.current?.click();
-  }
+  // Close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) {
-      onImport(file);
-      e.target.value = '';
-    }
+    if (file) { onImport(file); e.target.value = ''; }
+  }
+
+  function menuAction(fn: () => void) {
+    setMenuOpen(false);
+    fn();
   }
 
   return (
@@ -52,30 +64,6 @@ export function Header({ onSearchClick, onExport, onImport, onNewTask, onSession
         </button>
 
         <button
-          onClick={onWeeklySummary}
-          className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
-          title="Export a markdown summary of this week's work"
-        >
-          This week
-        </button>
-
-        <button
-          onClick={onExport}
-          className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
-          title="Export all tasks as JSON"
-        >
-          Export
-        </button>
-
-        <button
-          onClick={handleImportClick}
-          className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
-          title="Import tasks from JSON"
-        >
-          Import
-        </button>
-
-        <button
           onClick={onSessionsClick}
           className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-1.5"
           title="Manage Claude sessions"
@@ -85,6 +73,47 @@ export function Header({ onSearchClick, onExport, onImport, onNewTask, onSession
           )}
           Sessions
         </button>
+
+        {/* ··· menu */}
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
+            title="More options"
+          >
+            ···
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-52 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <button
+                onClick={() => menuAction(onWeeklySummary)}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors flex flex-col gap-0.5"
+              >
+                <span>This week</span>
+                <span className="text-xs text-slate-500">Download weekly summary (.md)</span>
+              </button>
+
+              <div className="border-t border-slate-700 my-1" />
+
+              <button
+                onClick={() => menuAction(onExport)}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors flex flex-col gap-0.5"
+              >
+                <span>Export tasks</span>
+                <span className="text-xs text-slate-500">Download all tasks as JSON</span>
+              </button>
+
+              <button
+                onClick={() => menuAction(() => fileInputRef.current?.click())}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors flex flex-col gap-0.5"
+              >
+                <span>Import tasks</span>
+                <span className="text-xs text-slate-500">Replace all tasks from JSON</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <input
           ref={fileInputRef}
