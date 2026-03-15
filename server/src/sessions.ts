@@ -6,8 +6,17 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 export const SESSIONS_FOLDER = path.join(__dirname, '..', 'sessions');
 
-export function createSessionFolder(sessionId: string): string {
-  const folderPath = path.join(SESSIONS_FOLDER, sessionId);
+export function createSessionFolder(sessionId: string, sessionName?: string): string {
+  let folderName = sessionId;
+  if (sessionName) {
+    const safeName = sessionName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    if (safeName) folderName = `${safeName}-${sessionId.slice(0, 8)}`;
+  }
+  const folderPath = path.join(SESSIONS_FOLDER, folderName);
   fs.mkdirSync(folderPath, { recursive: true });
   return folderPath;
 }

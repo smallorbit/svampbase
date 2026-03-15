@@ -49,6 +49,10 @@ export function launchSession(id: string): Promise<Session> {
   return apiFetch<Session>(`/sessions/${id}/launch`, { method: 'POST' });
 }
 
+export function revealSession(id: string): Promise<void> {
+  return apiFetch<void>(`/sessions/${id}/reveal`, { method: 'POST' });
+}
+
 export function getSessionFiles(sessionId: string): Promise<SessionFile[]> {
   return apiFetch<SessionFile[]>(`/sessions/${sessionId}/files`);
 }

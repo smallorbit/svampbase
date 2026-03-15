@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 function validateUUID(id: string): string {
   if (!/^[0-9a-f-]+$/i.test(id)) {
@@ -7,22 +7,28 @@ function validateUUID(id: string): string {
   return id;
 }
 
-function escapePath(p: string): string {
-  return p.replace(/'/g, "'\\''");
+// Escape double quotes and backslashes for use inside an AppleScript double-quoted string
+function escapeForAppleScript(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function osascript(command: string): void {
+  execFileSync('osascript', [
+    '-e', 'tell application "Terminal"',
+    '-e', 'activate',
+    '-e', `do script "${command}"`,
+    '-e', 'end tell',
+  ]);
 }
 
 export function launchNewSession(sessionId: string, folderPath: string): void {
   const safeId = validateUUID(sessionId);
-  const safeFolder = escapePath(folderPath);
-  execSync(
-    `osascript -e 'tell application "Terminal"' -e 'activate' -e 'do script "claude --session-id ${safeId} --add-dir \\'${safeFolder}\\'"' -e 'end tell'`
-  );
+  const safeFolder = escapeForAppleScript(folderPath);
+  osascript(`cd '${safeFolder}' && claude --session-id ${safeId}`);
 }
 
 export function resumeSession(sessionId: string, folderPath: string): void {
   const safeId = validateUUID(sessionId);
-  const safeFolder = escapePath(folderPath);
-  execSync(
-    `osascript -e 'tell application "Terminal"' -e 'activate' -e 'do script "claude --resume ${safeId} --add-dir \\'${safeFolder}\\'"' -e 'end tell'`
-  );
+  const safeFolder = escapeForAppleScript(folderPath);
+  osascript(`cd '${safeFolder}' && claude --resume ${safeId}`);
 }

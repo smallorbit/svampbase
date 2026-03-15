@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { SessionFile } from '../lib/sessionTypes';
-import { getSessionFiles, uploadSessionFiles, deleteSessionFile } from '../api/sessions';
+import { getSessionFiles, uploadSessionFiles, deleteSessionFile, revealSession } from '../api/sessions';
 
 interface SessionFilesProps {
   sessionId: string;
@@ -47,10 +47,22 @@ export function SessionFiles({ sessionId, folderPath }: SessionFilesProps) {
 
   return (
     <div className="space-y-3">
-      {/* Folder path hint */}
-      <p className="text-slate-500 text-xs font-mono truncate" title={folderPath}>
-        {folderPath}
-      </p>
+      {/* Folder path + Reveal in Finder */}
+      <div className="flex items-center gap-2">
+        <p className="text-slate-500 text-xs font-mono truncate flex-1" title={folderPath}>
+          {folderPath}
+        </p>
+        <button
+          onClick={() => revealSession(sessionId)}
+          title="Reveal in Finder"
+          className="flex-shrink-0 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          Finder
+        </button>
+      </div>
 
       {/* Drop zone */}
       <div

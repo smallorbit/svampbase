@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import multer from 'multer';
 import { getAllSessions, getSession, upsertSession, deleteSession, createSessionFolder, SESSIONS_FOLDER } from './sessions';
 import { launchNewSession, resumeSession } from './terminal';
@@ -39,11 +40,12 @@ app.post('/sessions', (req, res) => {
 
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const folderPath = createSessionFolder(id);
+  const sessionName = name?.trim() || `svampbase-${randomChars(8)}`;
+  const folderPath = createSessionFolder(id, sessionName);
 
   const session: Session = {
     id,
-    name: name?.trim() || `svampbase-${randomChars(8)}`,
+    name: sessionName,
     status: 'active',
     taskIds: taskIds ?? [],
     folderPath,
@@ -97,6 +99,17 @@ app.patch('/sessions/:id', (req, res) => {
   res.json(updated);
 });
 
+app.post('/sessions/:id/reveal', (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session) { res.status(404).json({ error: 'Session not found' }); return; }
+  const folderPath = session.folderPath;
+  if (!folderPath || !fs.existsSync(folderPath)) {
+    res.status(404).json({ error: 'Session folder not found' }); return;
+  }
+  execFileSync('open', [folderPath]);
+  res.status(204).send();
+});
+
 app.delete('/sessions/:id', (req, res) => {
   const deleted = deleteSession(req.params.id);
   if (!deleted) { res.status(404).json({ error: 'Session not found' }); return; }
@@ -104,11 +117,15 @@ app.delete('/sessions/:id', (req, res) => {
 });
 
 app.post('/sessions/:id/launch', (req, res) => {
-  const session = getSession(req.params.id);
+  let session = getSession(req.params.id);
   if (!session) { res.status(404).json({ error: 'Session not found' }); return; }
 
-  // Ensure folder exists (for sessions created before this feature)
-  if (!fs.existsSync(session.folderPath)) {
+  // Backfill folderPath for sessions created before this feature
+  const folderPath = session.folderPath || createSessionFolder(session.id);
+  if (!session.folderPath) {
+    session = { ...session, folderPath };
+    upsertSession(session);
+  } else if (!fs.existsSync(session.folderPath)) {
     fs.mkdirSync(session.folderPath, { recursive: true });
   }
 
@@ -137,10 +154,14 @@ app.post('/sessions/:id/launch', (req, res) => {
 function getSessionUploadDir(sessionId: string): string | null {
   const session = getSession(sessionId);
   if (!session) return null;
-  if (!fs.existsSync(session.folderPath)) {
-    fs.mkdirSync(session.folderPath, { recursive: true });
+  // Backfill folderPath for sessions created before this feature
+  const folderPath = session.folderPath || createSessionFolder(sessionId);
+  if (!session.folderPath) {
+    upsertSession({ ...session, folderPath, updatedAt: new Date().toISOString() });
+  } else if (!fs.existsSync(folderPath)) {
+    fs.mkdirSync(folderPath, { recursive: true });
   }
-  return session.folderPath;
+  return folderPath;
 }
 
 function multerStorageFor(sessionId: string) {
