@@ -32,5 +32,6 @@ npm-debug.log*
 # Server
 server/data/sessions.json
 server/data/tasks.json
+server/data/journal.json
 server/sessions/
 server/node_modules/
