@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Task, TaskStatus } from './lib/types';
 import { useTasks } from './hooks/useTasks';
+import { useJournal } from './hooks/useJournal';
 import { useReminders } from './hooks/useReminders';
 import { useSessions } from './hooks/useSessions';
 import { useBackendStatus } from './hooks/useBackendStatus';
@@ -10,6 +11,7 @@ import { TaskModal } from './components/TaskModal';
 import { SearchModal } from './components/SearchModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SessionsPanel } from './components/SessionsPanel';
+import { JournalPanel } from './components/JournalPanel';
 
 export default function App() {
   const {
@@ -25,6 +27,7 @@ export default function App() {
     exportWeeklySummary,
   } = useTasks();
 
+  const { entries: journalEntries } = useJournal();
   const { alerts, dismissAlert } = useReminders(tasks);
   const { sessions } = useSessions();
   const hasActiveSessions = sessions.some((s) => s.status === 'active');
@@ -33,6 +36,7 @@ export default function App() {
   const [modalTask, setModalTask] = useState<Task | null | undefined>(undefined); // undefined = closed, null = new
   const [showSearch, setShowSearch] = useState(false);
   const [showSessionsPanel, setShowSessionsPanel] = useState(false);
+  const [showJournalPanel, setShowJournalPanel] = useState(false);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -103,7 +107,8 @@ export default function App() {
       <Header
         onSearchClick={() => setShowSearch(true)}
         onExport={exportJSON}
-        onWeeklySummary={() => exportWeeklySummary()}
+        onWeeklySummary={() => exportWeeklySummary(7, journalEntries)}
+        onJournalClick={() => setShowJournalPanel((v) => !v)}
         onImport={handleImportRequest}
         onNewTask={openNewTask}
         onSessionsClick={() => setShowSessionsPanel((v) => !v)}
@@ -180,6 +185,14 @@ export default function App() {
 
       {showSessionsPanel && (
         <SessionsPanel onClose={() => setShowSessionsPanel(false)} />
+      )}
+
+      {showJournalPanel && (
+        <JournalPanel
+          onClose={() => setShowJournalPanel(false)}
+          onOpenTask={openTask}
+          allTasks={tasks}
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { execFileSync } from 'child_process';
 import multer from 'multer';
 import { getAllSessions, getSession, upsertSession, deleteSession, createSessionFolder, SESSIONS_FOLDER } from './sessions';
 import { getAllTasks, getTask, upsertTask, deleteTask as deleteTaskStore, replaceAllTasks, generateTaskId } from './tasks';
+import { getAllEntries, getEntry, upsertEntry, deleteEntry } from './journal';
 import { launchNewSession, resumeSession } from './terminal';
 import type { Session, SessionStatus, SessionFile } from './types';
 
@@ -267,6 +268,43 @@ app.post('/tasks/import', (req, res) => {
   if (!Array.isArray(tasks)) { res.status(400).json({ error: 'Expected { tasks: [...] }' }); return; }
   replaceAllTasks(tasks);
   res.json({ imported: tasks.length });
+});
+
+// --- Journal ---
+
+app.get('/journal', (_req, res) => {
+  res.json(getAllEntries());
+});
+
+app.post('/journal', (req, res) => {
+  const { content } = req.body as { content?: string };
+  if (!content?.trim()) { res.status(400).json({ error: 'content is required' }); return; }
+  const now = new Date().toISOString();
+  const entry = { id: crypto.randomUUID(), content: content.trim(), createdAt: now, updatedAt: now };
+  upsertEntry(entry);
+  res.status(201).json(entry);
+});
+
+app.get('/journal/:id', (req, res) => {
+  const entry = getEntry(req.params.id);
+  if (!entry) { res.status(404).json({ error: 'Entry not found' }); return; }
+  res.json(entry);
+});
+
+app.put('/journal/:id', (req, res) => {
+  const existing = getEntry(req.params.id);
+  if (!existing) { res.status(404).json({ error: 'Entry not found' }); return; }
+  const { content } = req.body as { content?: string };
+  if (!content?.trim()) { res.status(400).json({ error: 'content is required' }); return; }
+  const updated = { ...existing, content: content.trim(), updatedAt: new Date().toISOString() };
+  upsertEntry(updated);
+  res.json(updated);
+});
+
+app.delete('/journal/:id', (req, res) => {
+  const deleted = deleteEntry(req.params.id);
+  if (!deleted) { res.status(404).json({ error: 'Entry not found' }); return; }
+  res.status(204).send();
 });
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

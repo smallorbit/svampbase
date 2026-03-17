@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Task, TaskStatus, StatusHistoryEntry } from '../lib/types';
+import type { Task, TaskStatus, StatusHistoryEntry, JournalEntry } from '../lib/types';
 import { api } from '../api/tasks';
 import { nanoid, computeReminderFiresAt } from '../lib/utils';
 import { downloadWeeklySummary } from '../lib/weeklyExport';
@@ -136,8 +136,8 @@ export function useTasks() {
     setTasks(fresh);
   }, []);
 
-  const exportWeeklySummary = useCallback((days = 7): void => {
-    downloadWeeklySummary(tasks, days);
+  const exportWeeklySummary = useCallback((days = 7, journalEntries: JournalEntry[] = []): void => {
+    downloadWeeklySummary(tasks, days, journalEntries);
   }, [tasks]);
 
   return {

@@ -1,4 +1,4 @@
-import type { Task } from './types';
+import type { Task, JournalEntry } from './types';
 import { STATUS_LABELS } from './utils';
 
 function formatDate(iso: string): string {
@@ -69,7 +69,29 @@ function taskSection(task: Task): string {
   return lines.join('\n');
 }
 
-export function generateWeeklySummary(tasks: Task[], days = 7): string {
+function journalSection(entries: JournalEntry[], cutoff: Date): string {
+  const recent = entries.filter((e) => new Date(e.createdAt) >= cutoff);
+  if (recent.length === 0) return '';
+
+  const sorted = [...recent].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const lines: string[] = [];
+  lines.push(`## Journal (${recent.length})`);
+  lines.push('');
+
+  for (const entry of sorted) {
+    const date = new Date(entry.createdAt).toLocaleDateString([], {
+      weekday: 'short', month: 'short', day: 'numeric',
+    });
+    lines.push(`### ${date}`);
+    lines.push('');
+    lines.push(entry.content);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+export function generateWeeklySummary(tasks: Task[], days = 7, journalEntries: JournalEntry[] = []): string {
   const now = new Date();
   const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
@@ -117,11 +139,14 @@ export function generateWeeklySummary(tasks: Task[], days = 7): string {
     lines.push('');
   }
 
+  const journal = journalSection(journalEntries, cutoff);
+  if (journal) lines.push(journal);
+
   return lines.join('\n');
 }
 
-export function downloadWeeklySummary(tasks: Task[], days = 7): void {
-  const md = generateWeeklySummary(tasks, days);
+export function downloadWeeklySummary(tasks: Task[], days = 7, journalEntries: JournalEntry[] = []): void {
+  const md = generateWeeklySummary(tasks, days, journalEntries);
   const now = new Date();
   const blob = new Blob([md], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
