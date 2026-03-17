@@ -316,7 +316,7 @@ export function TaskModal({
                         type="text"
                         value={statusChangeNote}
                         onChange={(e) => setStatusChangeNote(e.target.value)}
-                        placeholder="Optional note for status change..."
+                        placeholder="Optional note for this status change (shown in History tab)..."
                         className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
