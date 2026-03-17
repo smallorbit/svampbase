@@ -60,3 +60,10 @@ export interface Alert {
   type: 'boomerang' | 'deadline';
   task: Task;
 }
+
+export interface JournalEntry {
+  id: string;
+  content: string; // plain text; #TASK-XXX references are parsed on render
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
