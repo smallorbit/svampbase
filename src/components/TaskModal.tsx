@@ -5,6 +5,7 @@ import type {
   TaskLink,
   TaskNote,
   TaskScreenshot,
+  StatusHistoryEntry,
   ReminderDuration,
 } from '../lib/types';
 import { nanoid, formatRelativeTime, STATUS_LABELS, REMINDER_LABELS, computeReminderFiresAt } from '../lib/utils';
@@ -103,6 +104,41 @@ export function TaskModal({
       setStatusChangeNote('');
     }
     setStatus(newStatus);
+  };
+
+  // Quick-action buttons (Mark Complete, Archive) save ALL pending local field
+  // changes together with the status transition in one shot, then close. This
+  // avoids the confusion of "did I also need to click Save Changes?".
+  const handleQuickAction = (newStatus: 'completed' | 'archived') => {
+    if (!task) return;
+    const now = new Date().toISOString();
+    const deadlineISO = deadline ? new Date(deadline).toISOString() : undefined;
+    const historyEntry: StatusHistoryEntry = {
+      id: nanoid(),
+      timestamp: now,
+      fromStatus: task.status,
+      toStatus: newStatus,
+    };
+    const updated: Task = {
+      ...task,
+      title: title.trim() || task.title,
+      description,
+      status: newStatus,
+      deadline: deadlineISO,
+      reminderDuration: undefined,
+      reminderFiresAt: undefined,
+      reminderDismissed: true,
+      links,
+      notes,
+      screenshots,
+      relatedTaskIds,
+      completedAt: newStatus === 'completed' ? now : task.completedAt,
+      archivedAt: newStatus === 'archived' ? now : task.archivedAt,
+      updatedAt: now,
+      history: [...task.history, historyEntry],
+    };
+    onSave(updated);
+    onClose();
   };
 
   const handleSave = () => {
@@ -314,25 +350,30 @@ export function TaskModal({
                 </div>
 
                 {!isNew && task && (
-                  <div className="pt-2 border-t border-slate-700 flex gap-3">
-                    <button
-                      onClick={() => handleStatusChange('completed')}
-                      className="flex-1 bg-green-800 hover:bg-green-700 text-green-100 text-sm py-2 rounded transition-colors"
-                    >
-                      Mark Complete
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange('archived')}
-                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm py-2 rounded transition-colors"
-                    >
-                      Archive
-                    </button>
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="bg-red-900 hover:bg-red-800 text-red-200 text-sm px-3 py-2 rounded transition-colors"
-                    >
-                      Delete
-                    </button>
+                  <div className="pt-2 border-t border-slate-700 space-y-2">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleQuickAction('completed')}
+                        className="flex-1 bg-green-800 hover:bg-green-700 text-green-100 text-sm py-2 rounded transition-colors"
+                        title="Saves all changes and marks complete"
+                      >
+                        Mark Complete
+                      </button>
+                      <button
+                        onClick={() => handleQuickAction('archived')}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm py-2 rounded transition-colors"
+                        title="Saves all changes and archives"
+                      >
+                        Archive
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="bg-red-900 hover:bg-red-800 text-red-200 text-sm px-3 py-2 rounded transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500">Mark Complete and Archive save all changes immediately.</p>
                   </div>
                 )}
               </div>
@@ -728,20 +769,25 @@ export function TaskModal({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-700 px-5 py-4 flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim()}
-              className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
-            >
-              {isNew ? 'Create Task' : 'Save Changes'}
-            </button>
+          <div className="border-t border-slate-700 px-5 py-4 flex items-center justify-between gap-3">
+            {!isNew && (
+              <p className="text-xs text-slate-500">Status changes via the dropdown save immediately.</p>
+            )}
+            <div className="flex gap-3 ml-auto">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm transition-colors"
+              >
+                {isNew ? 'Cancel' : 'Close'}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!title.trim()}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              >
+                {isNew ? 'Create Task' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
