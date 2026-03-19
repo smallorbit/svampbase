@@ -10,7 +10,7 @@ export type ReminderDuration = '4h' | '1bd' | '5bd';
 
 export interface TaskLink {
   id: string;
-  type: 'jira' | 'slack' | 'url';
+  type: 'jira' | 'slack' | 'url' | 'email' | 'github';
   url: string;
   label: string;
 }
