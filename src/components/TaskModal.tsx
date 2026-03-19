@@ -440,6 +440,8 @@ export function TaskModal({
                       <option value="jira">Jira</option>
                       <option value="slack">Slack</option>
                       <option value="url">URL</option>
+                      <option value="email">Email</option>
+                      <option value="github">GitHub</option>
                     </select>
                     <input
                       type="url"
@@ -474,6 +476,8 @@ export function TaskModal({
                           <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                             link.type === 'jira' ? 'bg-blue-900/60 text-blue-300' :
                             link.type === 'slack' ? 'bg-purple-900/60 text-purple-300' :
+                            link.type === 'email' ? 'bg-green-900/60 text-green-300' :
+                            link.type === 'github' ? 'bg-gray-700/80 text-gray-300' :
                             'bg-slate-700 text-slate-300'
                           }`}>
                             {link.type}

@@ -74,6 +74,26 @@ describe('generateWeeklySummary — completed tasks', () => {
     expect(result).toContain('[Example](https://example.com)');
   });
 
+  it('includes email links in the output', () => {
+    const task = makeTask({
+      status: 'completed',
+      completedAt: daysAgo(1),
+      links: [{ id: '1', type: 'email', url: 'mailto:user@example.com', label: 'Contact' }],
+    });
+    const result = generateWeeklySummary([task]);
+    expect(result).toContain('[Contact](mailto:user@example.com)');
+  });
+
+  it('includes github links in the output', () => {
+    const task = makeTask({
+      status: 'completed',
+      completedAt: daysAgo(1),
+      links: [{ id: '1', type: 'github', url: 'https://github.com/org/repo/pull/42', label: 'PR #42' }],
+    });
+    const result = generateWeeklySummary([task]);
+    expect(result).toContain('[PR #42](https://github.com/org/repo/pull/42)');
+  });
+
   it('includes notes in the output', () => {
     const task = makeTask({
       status: 'completed',
