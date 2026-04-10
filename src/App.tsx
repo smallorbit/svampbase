@@ -15,6 +15,7 @@ import { JournalPanel } from './components/JournalPanel';
 import { StandupPanel } from './components/StandupPanel';
 import { TimelinePanel } from './components/TimelinePanel';
 import { TagPanel } from './components/TagPanel';
+import { HistoryPanel } from './components/HistoryPanel';
 
 export default function App() {
   const {
@@ -42,6 +43,7 @@ export default function App() {
   const [showJournalPanel, setShowJournalPanel] = useState(false);
   const [showStandupPanel, setShowStandupPanel] = useState(false);
   const [showTimelinePanel, setShowTimelinePanel] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const allTags = Array.from(new Set(tasks.flatMap((t) => t.tags ?? []))).sort();
@@ -119,6 +121,7 @@ export default function App() {
         onJournalClick={() => setShowJournalPanel((v) => !v)}
         onStandupClick={() => setShowStandupPanel((v) => !v)}
         onTimelineClick={() => setShowTimelinePanel((v) => !v)}
+        onHistoryClick={() => setShowHistoryPanel((v) => !v)}
         onImport={handleImportRequest}
         onNewTask={openNewTask}
         onSessionsClick={() => setShowSessionsPanel((v) => !v)}
@@ -229,6 +232,15 @@ export default function App() {
           tasks={tasks}
           onClose={() => setActiveTag(null)}
           onOpenTask={(task) => { setActiveTag(null); openTask(task); }}
+        />
+      )}
+
+      {showHistoryPanel && (
+        <HistoryPanel
+          tasks={tasks}
+          onClose={() => setShowHistoryPanel(false)}
+          onOpenTask={(task) => { setShowHistoryPanel(false); openTask(task); }}
+          onUpdateTask={handleSaveTask}
         />
       )}
     </div>

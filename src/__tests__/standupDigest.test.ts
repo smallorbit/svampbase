@@ -10,10 +10,6 @@ function hoursAgo(n: number): string {
   return new Date(NOW.getTime() - n * 3_600_000).toISOString();
 }
 
-function hoursFromNow(n: number): string {
-  return new Date(NOW.getTime() + n * 3_600_000).toISOString();
-}
-
 function daysAgo(n: number): string {
   return new Date(NOW.getTime() - n * 86_400_000).toISOString();
 }
