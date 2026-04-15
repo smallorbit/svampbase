@@ -1,9 +1,5 @@
 import { execFileSync, spawnSync } from 'child_process';
-
-function validateUUID(id: string): string {
-  if (!/^[0-9a-f-]+$/i.test(id)) throw new Error(`Invalid session ID: ${id}`);
-  return id;
-}
+import { validateUUID } from './utils';
 
 // Escape for use inside an AppleScript double-quoted string
 function escapeAppleScript(s: string): string {

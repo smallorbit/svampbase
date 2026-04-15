@@ -102,3 +102,9 @@ export const REMINDER_LABELS: Record<string, string> = {
   '1bd': '1 Business Day',
   '5bd': '5 Business Days',
 };
+
+const UUID_REGEX = /^[0-9a-f-]+$/i;
+
+export function validateUUID(id: string): boolean {
+  return UUID_REGEX.test(id);
+}
