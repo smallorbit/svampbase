@@ -8,7 +8,7 @@ import type {
   StatusHistoryEntry,
   ReminderDuration,
 } from '../lib/types';
-import { nanoid, formatRelativeTime, STATUS_LABELS, REMINDER_LABELS, computeReminderFiresAt } from '../lib/utils';
+import { nanoid, formatRelativeTime, STATUS_LABELS, REMINDER_LABELS, computeReminderFiresAt, validateUUID } from '../lib/utils';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useSessions } from '../hooks/useSessions';
 import type { Session } from '../lib/sessionTypes';
@@ -98,15 +98,20 @@ export function TaskModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Sessions tab
-  const { sessions, loading: sessionsLoading, error: sessionsError, createSession, updateSession: updateSessionHook, launchSession } = useSessions(task?.id);
+  const { sessions, loading: sessionsLoading, error: sessionsError, createSession, updateSession: updateSessionHook, launchSession, importSession, refresh: refreshSessions } = useSessions(task?.id);
   const [newSessionName, setNewSessionName] = useState('');
   const [newSessionNotes, setNewSessionNotes] = useState('');
   const [newSessionLaunch, setNewSessionLaunch] = useState(false);
 
-  // Import confirm
-  const [showImportConfirm, setShowImportConfirm] = useState(false);
-  void showImportConfirm;
-  void setShowImportConfirm;
+  // Session sub-tabs
+  const [activeSessionTab, setActiveSessionTab] = useState<'new' | 'link-existing'>('new');
+  const [linkSessionId, setLinkSessionId] = useState('');
+  const [linkSessionIdTouched, setLinkSessionIdTouched] = useState(false);
+  const [linkSessionName, setLinkSessionName] = useState('');
+  const [linkSessionNotes, setLinkSessionNotes] = useState('');
+  const [linkSessionLaunch, setLinkSessionLaunch] = useState(false);
+  const [linkExistingConfirm, setLinkExistingConfirm] = useState(false);
+  const [linkExistingConfirmSessionId, setLinkExistingConfirmSessionId] = useState('');
 
   // Called when the dropdown value changes. For existing tasks we stage the
   // change so the user can add an optional note before it's committed.
@@ -864,49 +869,182 @@ export function TaskModal({
 
                 {!sessionsError && !isNew && task && (
                   <section className="border-t border-slate-700 pt-4">
-                    <h3 className="text-slate-300 text-sm font-semibold mb-2">New Session</h3>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={newSessionName}
-                        onChange={(e) => setNewSessionName(e.target.value)}
-                        placeholder="Auto-generated if blank"
-                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                      />
-                      <textarea
-                        value={newSessionNotes}
-                        onChange={(e) => setNewSessionNotes(e.target.value)}
-                        placeholder="Notes (optional)"
-                        rows={2}
-                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
-                      />
-                      <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newSessionLaunch}
-                          onChange={(e) => setNewSessionLaunch(e.target.checked)}
-                          className="rounded"
-                        />
-                        Open in Terminal immediately
-                      </label>
+                    <div className="flex border-b border-slate-700 mb-3">
                       <button
-                        onClick={async () => {
-                          if (!task) return;
-                          await createSession({
-                            name: newSessionName.trim() || undefined,
-                            taskIds: [task.id],
-                            notes: newSessionNotes.trim() || undefined,
-                            launch: newSessionLaunch,
-                          });
-                          setNewSessionName('');
-                          setNewSessionNotes('');
-                          setNewSessionLaunch(false);
-                        }}
-                        className="bg-blue-700 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded transition-colors"
+                        onClick={() => setActiveSessionTab('new')}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          activeSessionTab === 'new'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
                       >
-                        Create Session
+                        New
+                      </button>
+                      <button
+                        onClick={() => setActiveSessionTab('link-existing')}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          activeSessionTab === 'link-existing'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Link Existing
                       </button>
                     </div>
+
+                    {activeSessionTab === 'new' && (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={newSessionName}
+                          onChange={(e) => setNewSessionName(e.target.value)}
+                          placeholder="Auto-generated if blank"
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        />
+                        <textarea
+                          value={newSessionNotes}
+                          onChange={(e) => setNewSessionNotes(e.target.value)}
+                          placeholder="Notes (optional)"
+                          rows={2}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+                        />
+                        <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newSessionLaunch}
+                            onChange={(e) => setNewSessionLaunch(e.target.checked)}
+                            className="rounded"
+                          />
+                          Open in Terminal immediately
+                        </label>
+                        <button
+                          onClick={async () => {
+                            if (!task) return;
+                            await createSession({
+                              name: newSessionName.trim() || undefined,
+                              taskIds: [task.id],
+                              notes: newSessionNotes.trim() || undefined,
+                              launch: newSessionLaunch,
+                            });
+                            setNewSessionName('');
+                            setNewSessionNotes('');
+                            setNewSessionLaunch(false);
+                          }}
+                          className="bg-blue-700 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded transition-colors"
+                        >
+                          Create Session
+                        </button>
+                      </div>
+                    )}
+
+                    {activeSessionTab === 'link-existing' && (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-slate-300 text-sm font-medium mb-1">Session ID *</label>
+                          <input
+                            type="text"
+                            value={linkSessionId}
+                            onChange={(e) => { setLinkSessionId(e.target.value); setLinkSessionIdTouched(true); }}
+                            placeholder="Paste Claude session UUID"
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                          {linkSessionIdTouched && linkSessionId.trim() !== '' && !validateUUID(linkSessionId.trim()) && (
+                            <p className="text-red-400 text-xs mt-1">Invalid session ID format</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 text-sm font-medium mb-1">Name</label>
+                          <input
+                            type="text"
+                            value={linkSessionName}
+                            onChange={(e) => setLinkSessionName(e.target.value)}
+                            placeholder="Auto-generated if blank"
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 text-sm font-medium mb-1">Notes</label>
+                          <textarea
+                            value={linkSessionNotes}
+                            onChange={(e) => setLinkSessionNotes(e.target.value)}
+                            placeholder="Notes (optional)"
+                            rows={2}
+                            className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={linkSessionLaunch}
+                            onChange={(e) => setLinkSessionLaunch(e.target.checked)}
+                            className="rounded"
+                          />
+                          Resume in Terminal
+                        </label>
+                        <p className="text-slate-500 text-xs ml-6 -mt-1">Opens in the session folder, not the original project directory</p>
+
+                        {linkExistingConfirm && (
+                          <div className="bg-slate-900/60 border border-slate-600 rounded p-3 space-y-2">
+                            <p className="text-slate-200 text-sm">This session already exists. Link it to this task too?</p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  await importSession({
+                                    sessionId: linkExistingConfirmSessionId,
+                                    taskIds: [task.id],
+                                  });
+                                  await refreshSessions();
+                                  setLinkExistingConfirm(false);
+                                  setLinkExistingConfirmSessionId('');
+                                  setLinkSessionId('');
+                                  setLinkSessionName('');
+                                  setLinkSessionNotes('');
+                                  setLinkSessionLaunch(false);
+                                  setLinkSessionIdTouched(false);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors"
+                              >
+                                Yes, link it
+                              </button>
+                              <button
+                                onClick={() => { setLinkExistingConfirm(false); setLinkExistingConfirmSessionId(''); }}
+                                className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          disabled={!linkSessionId.trim() || !validateUUID(linkSessionId.trim())}
+                          onClick={async () => {
+                            if (!task) return;
+                            const trimmedId = linkSessionId.trim();
+                            const result = await importSession({
+                              sessionId: trimmedId,
+                              name: linkSessionName.trim() || undefined,
+                              notes: linkSessionNotes.trim() || undefined,
+                              taskIds: [task.id],
+                              launch: linkSessionLaunch,
+                            });
+                            if (result.alreadyExisted) {
+                              setLinkExistingConfirm(true);
+                              setLinkExistingConfirmSessionId(trimmedId);
+                            } else {
+                              setLinkSessionId('');
+                              setLinkSessionName('');
+                              setLinkSessionNotes('');
+                              setLinkSessionLaunch(false);
+                              setLinkSessionIdTouched(false);
+                            }
+                          }}
+                          className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded transition-colors"
+                        >
+                          Link Session
+                        </button>
+                      </div>
+                    )}
                   </section>
                 )}
 
