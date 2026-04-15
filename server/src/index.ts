@@ -95,6 +95,15 @@ app.post('/sessions/import', (req, res) => {
 
   const existing = getSession(sessionId);
   if (existing) {
+    if (taskIds && taskIds.length > 0) {
+      const merged = Array.from(new Set([...existing.taskIds, ...taskIds]));
+      if (merged.length !== existing.taskIds.length) {
+        const updated = { ...existing, taskIds: merged, updatedAt: new Date().toISOString() };
+        upsertSession(updated);
+        res.status(200).json({ session: updated, alreadyExisted: true });
+        return;
+      }
+    }
     res.status(200).json({ session: existing, alreadyExisted: true });
     return;
   }
