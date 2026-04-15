@@ -84,4 +84,11 @@ export function deleteSessionFile(sessionId: string, filename: string): Promise<
   return apiFetch<void>(`/sessions/${sessionId}/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
 }
 
+export function resolveSession(sessionId: string): Promise<{ projectPath: string | null }> {
+  return apiFetch<{ projectPath: string | null }>('/sessions/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
+}
+
 export type { Session, SessionStatus, SessionFile };
