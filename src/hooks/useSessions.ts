@@ -75,6 +75,13 @@ export function useSessions(taskId?: string) {
     []
   );
 
+  const resolveSession = useCallback(
+    (sessionId: string): Promise<{ projectPath: string | null }> => {
+      return sessionsApi.resolveSession(sessionId);
+    },
+    []
+  );
+
   return {
     sessions,
     loading,
@@ -84,6 +91,7 @@ export function useSessions(taskId?: string) {
     deleteSession,
     launchSession,
     importSession,
+    resolveSession,
     refresh: fetchSessions,
   };
 }
