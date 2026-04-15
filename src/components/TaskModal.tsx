@@ -106,12 +106,10 @@ export function TaskModal({
   // Session sub-tabs
   const [activeSessionTab, setActiveSessionTab] = useState<'new' | 'link-existing'>('new');
   const [linkSessionId, setLinkSessionId] = useState('');
-  const [linkSessionIdTouched, setLinkSessionIdTouched] = useState(false);
   const [linkSessionName, setLinkSessionName] = useState('');
   const [linkSessionNotes, setLinkSessionNotes] = useState('');
   const [linkSessionLaunch, setLinkSessionLaunch] = useState(false);
   const [linkExistingConfirm, setLinkExistingConfirm] = useState(false);
-  const [linkExistingConfirmSessionId, setLinkExistingConfirmSessionId] = useState('');
   const [linkResolvedPath, setLinkResolvedPath] = useState<string | null | undefined>(undefined);
   const [linkResolving, setLinkResolving] = useState(false);
 
@@ -977,11 +975,11 @@ export function TaskModal({
                           <input
                             type="text"
                             value={linkSessionId}
-                            onChange={(e) => { setLinkSessionId(e.target.value); setLinkSessionIdTouched(true); }}
+                            onChange={(e) => setLinkSessionId(e.target.value)}
                             placeholder="Paste Claude session UUID"
                             className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
                           />
-                          {linkSessionIdTouched && linkSessionId.trim() !== '' && !validateUUID(linkSessionId.trim()) && (
+                          {linkSessionId.trim() !== '' && !validateUUID(linkSessionId.trim()) && (
                             <p className="text-red-400 text-xs mt-1">Invalid session ID format</p>
                           )}
                           {linkResolving && (
@@ -1032,17 +1030,15 @@ export function TaskModal({
                               <button
                                 onClick={async () => {
                                   await importSession({
-                                    sessionId: linkExistingConfirmSessionId,
+                                    sessionId: linkSessionId.trim(),
                                     taskIds: [task.id],
                                   });
                                   await refreshSessions();
                                   setLinkExistingConfirm(false);
-                                  setLinkExistingConfirmSessionId('');
                                   setLinkSessionId('');
                                   setLinkSessionName('');
                                   setLinkSessionNotes('');
                                   setLinkSessionLaunch(false);
-                                  setLinkSessionIdTouched(false);
                                   setLinkResolvedPath(undefined);
                                   setLinkResolving(false);
                                 }}
@@ -1051,7 +1047,7 @@ export function TaskModal({
                                 Yes, link it
                               </button>
                               <button
-                                onClick={() => { setLinkExistingConfirm(false); setLinkExistingConfirmSessionId(''); }}
+                                onClick={() => setLinkExistingConfirm(false)}
                                 className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded transition-colors"
                               >
                                 Cancel
@@ -1076,13 +1072,11 @@ export function TaskModal({
                             const result = await importSession(importData);
                             if (result.alreadyExisted) {
                               setLinkExistingConfirm(true);
-                              setLinkExistingConfirmSessionId(trimmedId);
                             } else {
                               setLinkSessionId('');
                               setLinkSessionName('');
                               setLinkSessionNotes('');
                               setLinkSessionLaunch(false);
-                              setLinkSessionIdTouched(false);
                               setLinkResolvedPath(undefined);
                               setLinkResolving(false);
                             }

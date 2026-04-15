@@ -113,6 +113,7 @@ app.post('/sessions/import', (req, res) => {
   const now = new Date().toISOString();
   const sessionName = name?.trim() || `svampbase-${randomChars(8)}`;
   const folderPath = createSessionFolder(sessionId, sessionName);
+  const trimmedProjectPath = projectPath?.trim() || undefined;
 
   const session: Session = {
     id: sessionId,
@@ -120,7 +121,7 @@ app.post('/sessions/import', (req, res) => {
     status: 'paused',
     taskIds: taskIds ?? [],
     folderPath,
-    ...(projectPath && projectPath.trim() ? { projectPath: projectPath.trim() } : {}),
+    projectPath: trimmedProjectPath,
     createdAt: now,
     updatedAt: now,
     notes,
@@ -130,7 +131,7 @@ app.post('/sessions/import', (req, res) => {
 
   if (launch) {
     try {
-      const cwd = (projectPath && projectPath.trim()) ? projectPath.trim() : session.folderPath;
+      const cwd = trimmedProjectPath ?? session.folderPath;
       resumeSession(session.id, cwd);
       session.lastLaunchedAt = new Date().toISOString();
       session.status = 'active';
@@ -141,6 +142,50 @@ app.post('/sessions/import', (req, res) => {
   }
 
   res.status(201).json({ session, alreadyExisted: false });
+});
+
+app.post('/sessions/resolve', async (req, res) => {
+  const { sessionId } = req.body as { sessionId?: unknown };
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
+    res.status(400).json({ error: 'sessionId is required and must be a non-empty string' });
+    return;
+  }
+
+  interface HistoryEntry {
+    sessionId: string;
+    project: string;
+    timestamp: number;
+  }
+
+  const historyPath = path.join(os.homedir(), '.claude', 'history.jsonl');
+  let raw: string;
+  try {
+    raw = await fs.promises.readFile(historyPath, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      res.json({ projectPath: null });
+      return;
+    }
+    throw err;
+  }
+
+  let best: HistoryEntry | null = null;
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const entry = JSON.parse(trimmed) as HistoryEntry;
+      if (entry.sessionId === sessionId) {
+        if (!best || entry.timestamp > best.timestamp) {
+          best = entry;
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  res.json({ projectPath: best ? best.project : null });
 });
 
 app.get('/sessions/:id', (req, res) => {
@@ -222,48 +267,6 @@ app.post('/sessions/:id/launch', (req, res) => {
   const updated: Session = { ...session, status: 'active', lastLaunchedAt: now, updatedAt: now };
   upsertSession(updated);
   res.json(updated);
-});
-
-app.post('/sessions/resolve', (req, res) => {
-  const { sessionId } = req.body as { sessionId?: unknown };
-  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
-    res.status(400).json({ error: 'sessionId is required and must be a non-empty string' });
-    return;
-  }
-
-  const historyPath = path.join(os.homedir(), '.claude', 'history.jsonl');
-
-  if (!fs.existsSync(historyPath)) {
-    res.json({ projectPath: null });
-    return;
-  }
-
-  interface HistoryEntry {
-    sessionId: string;
-    project: string;
-    display: string;
-    timestamp: number;
-    pastedContents: unknown;
-  }
-
-  let best: HistoryEntry | null = null;
-  const raw = fs.readFileSync(historyPath, 'utf-8');
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const entry = JSON.parse(trimmed) as HistoryEntry;
-      if (entry.sessionId === sessionId) {
-        if (!best || entry.timestamp > best.timestamp) {
-          best = entry;
-        }
-      }
-    } catch {
-      // skip malformed lines
-    }
-  }
-
-  res.json({ projectPath: best ? best.project : null });
 });
 
 // --- Files ---
