@@ -120,6 +120,7 @@ app.post('/sessions/import', (req, res) => {
     status: 'paused',
     taskIds: taskIds ?? [],
     folderPath,
+    ...(projectPath && projectPath.trim() ? { projectPath: projectPath.trim() } : {}),
     createdAt: now,
     updatedAt: now,
     notes,
@@ -209,7 +210,8 @@ app.post('/sessions/:id/launch', (req, res) => {
     if (isFirstLaunch) {
       launchNewSession(session.id, session.folderPath);
     } else {
-      resumeSession(session.id, session.folderPath);
+      const cwd = session.projectPath ?? session.folderPath;
+      resumeSession(session.id, cwd);
     }
   } catch (err) {
     console.error('Terminal launch failed:', err);
