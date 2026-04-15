@@ -51,6 +51,7 @@ export function importSession(data: {
   notes?: string;
   taskIds?: string[];
   launch?: boolean;
+  projectPath?: string;
 }): Promise<{ session: Session; alreadyExisted: boolean }> {
   return apiFetch<{ session: Session; alreadyExisted: boolean }>('/sessions/import', {
     method: 'POST',
