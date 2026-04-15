@@ -74,12 +74,13 @@ app.post('/sessions', (req, res) => {
 });
 
 app.post('/sessions/import', (req, res) => {
-  const { sessionId, name, notes, taskIds, launch } = req.body as {
+  const { sessionId, name, notes, taskIds, launch, projectPath } = req.body as {
     sessionId?: string;
     name?: string;
     notes?: string;
     taskIds?: string[];
     launch?: boolean;
+    projectPath?: string;
   };
 
   if (!sessionId || typeof sessionId !== 'string') {
@@ -128,7 +129,8 @@ app.post('/sessions/import', (req, res) => {
 
   if (launch) {
     try {
-      resumeSession(session.id, session.folderPath);
+      const cwd = (projectPath && projectPath.trim()) ? projectPath.trim() : session.folderPath;
+      resumeSession(session.id, cwd);
       session.lastLaunchedAt = new Date().toISOString();
       session.status = 'active';
       upsertSession(session);
@@ -260,47 +262,6 @@ app.post('/sessions/resolve', (req, res) => {
   }
 
   res.json({ projectPath: best ? best.project : null });
-});
-
-app.post('/sessions/import', (req, res) => {
-  const { name, taskIds, notes, launch, projectPath } = req.body as {
-    name?: string;
-    taskIds?: string[];
-    notes?: string;
-    launch?: boolean;
-    projectPath?: string;
-  };
-
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  const sessionName = name?.trim() || `svampbase-${randomChars(8)}`;
-  const folderPath = createSessionFolder(id, sessionName);
-
-  const session: Session = {
-    id,
-    name: sessionName,
-    status: 'active',
-    taskIds: taskIds ?? [],
-    folderPath,
-    createdAt: now,
-    updatedAt: now,
-    notes,
-  };
-
-  upsertSession(session);
-
-  if (launch) {
-    try {
-      const cwd = (projectPath && projectPath.trim()) ? projectPath.trim() : session.folderPath;
-      resumeSession(session.id, cwd);
-      session.lastLaunchedAt = new Date().toISOString();
-      upsertSession(session);
-    } catch (err) {
-      console.error('Terminal launch failed:', err);
-    }
-  }
-
-  res.status(201).json(session);
 });
 
 // --- Files ---
