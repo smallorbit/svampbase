@@ -1023,7 +1023,7 @@ export function TaskModal({
                           />
                           Resume in Terminal
                         </label>
-                        <p className="text-slate-500 text-xs ml-6 -mt-1">Opens in the session folder, not the original project directory</p>
+                        <p className="text-slate-500 text-xs ml-6 -mt-1">Opens in the original project directory if resolved above</p>
 
                         {linkExistingConfirm && (
                           <div className="bg-slate-900/60 border border-slate-600 rounded p-3 space-y-2">
