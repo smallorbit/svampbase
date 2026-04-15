@@ -144,7 +144,7 @@ app.post('/sessions/import', (req, res) => {
   res.status(201).json({ session, alreadyExisted: false });
 });
 
-app.post('/sessions/resolve', async (req, res) => {
+app.post('/sessions/resolve', async (req, res, next) => {
   const { sessionId } = req.body as { sessionId?: unknown };
   if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
     res.status(400).json({ error: 'sessionId is required and must be a non-empty string' });
@@ -166,7 +166,8 @@ app.post('/sessions/resolve', async (req, res) => {
       res.json({ projectPath: null });
       return;
     }
-    throw err;
+    next(err);
+    return;
   }
 
   let best: HistoryEntry | null = null;

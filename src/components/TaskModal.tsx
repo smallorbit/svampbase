@@ -109,7 +109,7 @@ export function TaskModal({
   const [linkSessionName, setLinkSessionName] = useState('');
   const [linkSessionNotes, setLinkSessionNotes] = useState('');
   const [linkSessionLaunch, setLinkSessionLaunch] = useState(false);
-  const [linkExistingConfirm, setLinkExistingConfirm] = useState(false);
+  const [linkExistingConfirmId, setLinkExistingConfirmId] = useState<string | null>(null);
   const [linkResolvedPath, setLinkResolvedPath] = useState<string | null | undefined>(undefined);
   const [linkResolving, setLinkResolving] = useState(false);
 
@@ -1023,18 +1023,18 @@ export function TaskModal({
                         </label>
                         <p className="text-slate-500 text-xs ml-6 -mt-1">Opens in the original project directory if resolved above</p>
 
-                        {linkExistingConfirm && (
+                        {linkExistingConfirmId !== null && (
                           <div className="bg-slate-900/60 border border-slate-600 rounded p-3 space-y-2">
                             <p className="text-slate-200 text-sm">This session already exists. Link it to this task too?</p>
                             <div className="flex gap-2">
                               <button
                                 onClick={async () => {
                                   await importSession({
-                                    sessionId: linkSessionId.trim(),
+                                    sessionId: linkExistingConfirmId,
                                     taskIds: [task.id],
                                   });
                                   await refreshSessions();
-                                  setLinkExistingConfirm(false);
+                                  setLinkExistingConfirmId(null);
                                   setLinkSessionId('');
                                   setLinkSessionName('');
                                   setLinkSessionNotes('');
@@ -1047,7 +1047,7 @@ export function TaskModal({
                                 Yes, link it
                               </button>
                               <button
-                                onClick={() => setLinkExistingConfirm(false)}
+                                onClick={() => setLinkExistingConfirmId(null)}
                                 className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded transition-colors"
                               >
                                 Cancel
@@ -1071,7 +1071,7 @@ export function TaskModal({
                             };
                             const result = await importSession(importData);
                             if (result.alreadyExisted) {
-                              setLinkExistingConfirm(true);
+                              setLinkExistingConfirmId(trimmedId);
                             } else {
                               setLinkSessionId('');
                               setLinkSessionName('');
