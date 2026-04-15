@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type {
   Task,
   TaskStatus,
@@ -98,7 +98,7 @@ export function TaskModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Sessions tab
-  const { sessions, loading: sessionsLoading, error: sessionsError, createSession, updateSession: updateSessionHook, launchSession, importSession, refresh: refreshSessions } = useSessions(task?.id);
+  const { sessions, loading: sessionsLoading, error: sessionsError, createSession, updateSession: updateSessionHook, launchSession, importSession, resolveSession, refresh: refreshSessions } = useSessions(task?.id);
   const [newSessionName, setNewSessionName] = useState('');
   const [newSessionNotes, setNewSessionNotes] = useState('');
   const [newSessionLaunch, setNewSessionLaunch] = useState(false);
@@ -112,6 +112,39 @@ export function TaskModal({
   const [linkSessionLaunch, setLinkSessionLaunch] = useState(false);
   const [linkExistingConfirm, setLinkExistingConfirm] = useState(false);
   const [linkExistingConfirmSessionId, setLinkExistingConfirmSessionId] = useState('');
+  const [linkResolvedPath, setLinkResolvedPath] = useState<string | null | undefined>(undefined);
+  const [linkResolving, setLinkResolving] = useState(false);
+
+  useEffect(() => {
+    const trimmed = linkSessionId.trim();
+    if (!trimmed || !validateUUID(trimmed)) {
+      setLinkResolvedPath(undefined);
+      setLinkResolving(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLinkResolving(true);
+    setLinkResolvedPath(undefined);
+
+    const timer = setTimeout(() => {
+      resolveSession(trimmed)
+        .then((result) => {
+          if (!cancelled) {
+            setLinkResolvedPath(result.projectPath);
+            setLinkResolving(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLinkResolvedPath(undefined);
+            setLinkResolving(false);
+          }
+        });
+    }, 500);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [linkSessionId, resolveSession]);
 
   // Called when the dropdown value changes. For existing tasks we stage the
   // change so the user can add an optional note before it's committed.
@@ -951,6 +984,15 @@ export function TaskModal({
                           {linkSessionIdTouched && linkSessionId.trim() !== '' && !validateUUID(linkSessionId.trim()) && (
                             <p className="text-red-400 text-xs mt-1">Invalid session ID format</p>
                           )}
+                          {linkResolving && (
+                            <p className="text-slate-400 text-xs mt-1">Resolving...</p>
+                          )}
+                          {!linkResolving && typeof linkResolvedPath === 'string' && (
+                            <p className="text-slate-300 text-xs mt-1">Working directory: {linkResolvedPath}</p>
+                          )}
+                          {!linkResolving && linkResolvedPath === null && (
+                            <p className="text-amber-400 text-xs mt-1">Session not found in local history</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-slate-300 text-sm font-medium mb-1">Name</label>
@@ -1001,6 +1043,8 @@ export function TaskModal({
                                   setLinkSessionNotes('');
                                   setLinkSessionLaunch(false);
                                   setLinkSessionIdTouched(false);
+                                  setLinkResolvedPath(undefined);
+                                  setLinkResolving(false);
                                 }}
                                 className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors"
                               >
@@ -1021,13 +1065,15 @@ export function TaskModal({
                           onClick={async () => {
                             if (!task) return;
                             const trimmedId = linkSessionId.trim();
-                            const result = await importSession({
+                            const importData = {
                               sessionId: trimmedId,
                               name: linkSessionName.trim() || undefined,
                               notes: linkSessionNotes.trim() || undefined,
                               taskIds: [task.id],
                               launch: linkSessionLaunch,
-                            });
+                              projectPath: typeof linkResolvedPath === 'string' ? linkResolvedPath : undefined,
+                            };
+                            const result = await importSession(importData);
                             if (result.alreadyExisted) {
                               setLinkExistingConfirm(true);
                               setLinkExistingConfirmSessionId(trimmedId);
@@ -1037,6 +1083,8 @@ export function TaskModal({
                               setLinkSessionNotes('');
                               setLinkSessionLaunch(false);
                               setLinkSessionIdTouched(false);
+                              setLinkResolvedPath(undefined);
+                              setLinkResolving(false);
                             }
                           }}
                           className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded transition-colors"
