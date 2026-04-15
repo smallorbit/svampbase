@@ -6,6 +6,7 @@ export interface Session {
   status: SessionStatus;
   taskIds: string[];
   folderPath: string;
+  projectPath?: string;
   createdAt: string;
   updatedAt: string;
   lastLaunchedAt?: string;

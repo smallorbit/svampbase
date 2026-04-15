@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import multer from 'multer';
@@ -8,6 +9,7 @@ import { getAllSessions, getSession, upsertSession, deleteSession, createSession
 import { getAllTasks, getTask, upsertTask, deleteTask as deleteTaskStore, replaceAllTasks, generateTaskId } from './tasks';
 import { getAllEntries, getEntry, upsertEntry, deleteEntry } from './journal';
 import { launchNewSession, resumeSession } from './terminal';
+import { validateUUID } from './utils';
 import type { Session, SessionStatus, SessionFile } from './types';
 
 const app = express();
@@ -69,6 +71,122 @@ app.post('/sessions', (req, res) => {
   }
 
   res.status(201).json(session);
+});
+
+app.post('/sessions/import', (req, res) => {
+  const { sessionId, name, notes, taskIds, launch, projectPath } = req.body as {
+    sessionId?: string;
+    name?: string;
+    notes?: string;
+    taskIds?: string[];
+    launch?: boolean;
+    projectPath?: string;
+  };
+
+  if (!sessionId || typeof sessionId !== 'string') {
+    res.status(400).json({ error: 'sessionId is required' });
+    return;
+  }
+
+  try {
+    validateUUID(sessionId);
+  } catch {
+    res.status(400).json({ error: 'Invalid sessionId: must contain only hex characters and hyphens' });
+    return;
+  }
+
+  const existing = getSession(sessionId);
+  if (existing) {
+    if (taskIds && taskIds.length > 0) {
+      const merged = Array.from(new Set([...existing.taskIds, ...taskIds]));
+      if (merged.length !== existing.taskIds.length) {
+        const updated = { ...existing, taskIds: merged, updatedAt: new Date().toISOString() };
+        upsertSession(updated);
+        res.status(200).json({ session: updated, alreadyExisted: true });
+        return;
+      }
+    }
+    res.status(200).json({ session: existing, alreadyExisted: true });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const sessionName = name?.trim() || `svampbase-${randomChars(8)}`;
+  const folderPath = createSessionFolder(sessionId, sessionName);
+  const trimmedProjectPath = projectPath?.trim() || undefined;
+
+  const session: Session = {
+    id: sessionId,
+    name: sessionName,
+    status: 'paused',
+    taskIds: taskIds ?? [],
+    folderPath,
+    projectPath: trimmedProjectPath,
+    createdAt: now,
+    updatedAt: now,
+    notes,
+  };
+
+  upsertSession(session);
+
+  if (launch) {
+    try {
+      const cwd = trimmedProjectPath ?? session.folderPath;
+      resumeSession(session.id, cwd);
+      session.lastLaunchedAt = new Date().toISOString();
+      session.status = 'active';
+      upsertSession(session);
+    } catch (err) {
+      console.error('Terminal launch failed:', err);
+    }
+  }
+
+  res.status(201).json({ session, alreadyExisted: false });
+});
+
+app.post('/sessions/resolve', async (req, res, next) => {
+  const { sessionId } = req.body as { sessionId?: unknown };
+  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim() === '') {
+    res.status(400).json({ error: 'sessionId is required and must be a non-empty string' });
+    return;
+  }
+
+  interface HistoryEntry {
+    sessionId: string;
+    project: string;
+    timestamp: number;
+  }
+
+  const historyPath = path.join(os.homedir(), '.claude', 'history.jsonl');
+  let raw: string;
+  try {
+    raw = await fs.promises.readFile(historyPath, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      res.json({ projectPath: null });
+      return;
+    }
+    next(err);
+    return;
+  }
+
+  let best: HistoryEntry | null = null;
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const entry = JSON.parse(trimmed) as HistoryEntry;
+      if (entry.sessionId === sessionId) {
+        if (!best || entry.timestamp > best.timestamp) {
+          best = entry;
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  res.json({ projectPath: best ? best.project : null });
 });
 
 app.get('/sessions/:id', (req, res) => {
@@ -138,7 +256,8 @@ app.post('/sessions/:id/launch', (req, res) => {
     if (isFirstLaunch) {
       launchNewSession(session.id, session.folderPath);
     } else {
-      resumeSession(session.id, session.folderPath);
+      const cwd = session.projectPath ?? session.folderPath;
+      resumeSession(session.id, cwd);
     }
   } catch (err) {
     console.error('Terminal launch failed:', err);

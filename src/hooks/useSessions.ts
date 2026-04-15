@@ -58,6 +58,31 @@ export function useSessions(taskId?: string) {
     return updated;
   }, []);
 
+  const importSession = useCallback(
+    async (data: {
+      sessionId: string;
+      name?: string;
+      notes?: string;
+      taskIds?: string[];
+      launch?: boolean;
+      projectPath?: string;
+    }): Promise<{ session: Session; alreadyExisted: boolean }> => {
+      const result = await sessionsApi.importSession(data);
+      if (!result.alreadyExisted) {
+        setAllSessions((prev) => [...prev, result.session]);
+      }
+      return result;
+    },
+    []
+  );
+
+  const resolveSession = useCallback(
+    (sessionId: string): Promise<{ projectPath: string | null }> => {
+      return sessionsApi.resolveSession(sessionId);
+    },
+    []
+  );
+
   return {
     sessions,
     loading,
@@ -66,6 +91,8 @@ export function useSessions(taskId?: string) {
     updateSession,
     deleteSession,
     launchSession,
+    importSession,
+    resolveSession,
     refresh: fetchSessions,
   };
 }

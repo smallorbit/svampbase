@@ -45,6 +45,20 @@ export function deleteSession(id: string): Promise<void> {
   return apiFetch<void>(`/sessions/${id}`, { method: 'DELETE' });
 }
 
+export function importSession(data: {
+  sessionId: string;
+  name?: string;
+  notes?: string;
+  taskIds?: string[];
+  launch?: boolean;
+  projectPath?: string;
+}): Promise<{ session: Session; alreadyExisted: boolean }> {
+  return apiFetch<{ session: Session; alreadyExisted: boolean }>('/sessions/import', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export function launchSession(id: string): Promise<Session> {
   return apiFetch<Session>(`/sessions/${id}/launch`, { method: 'POST' });
 }
@@ -69,6 +83,13 @@ export function uploadSessionFiles(sessionId: string, files: FileList | File[]):
 
 export function deleteSessionFile(sessionId: string, filename: string): Promise<void> {
   return apiFetch<void>(`/sessions/${sessionId}/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+}
+
+export function resolveSession(sessionId: string): Promise<{ projectPath: string | null }> {
+  return apiFetch<{ projectPath: string | null }>('/sessions/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
 }
 
 export type { Session, SessionStatus, SessionFile };
