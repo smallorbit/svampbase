@@ -8,6 +8,7 @@ import { getAllSessions, getSession, upsertSession, deleteSession, createSession
 import { getAllTasks, getTask, upsertTask, deleteTask as deleteTaskStore, replaceAllTasks, generateTaskId } from './tasks';
 import { getAllEntries, getEntry, upsertEntry, deleteEntry } from './journal';
 import { launchNewSession, resumeSession } from './terminal';
+import { validateUUID } from './utils';
 import type { Session, SessionStatus, SessionFile } from './types';
 
 const app = express();
@@ -69,6 +70,64 @@ app.post('/sessions', (req, res) => {
   }
 
   res.status(201).json(session);
+});
+
+app.post('/sessions/import', (req, res) => {
+  const { sessionId, name, notes, taskIds, launch } = req.body as {
+    sessionId?: string;
+    name?: string;
+    notes?: string;
+    taskIds?: string[];
+    launch?: boolean;
+  };
+
+  if (!sessionId || typeof sessionId !== 'string') {
+    res.status(400).json({ error: 'sessionId is required' });
+    return;
+  }
+
+  try {
+    validateUUID(sessionId);
+  } catch {
+    res.status(400).json({ error: 'Invalid sessionId: must contain only hex characters and hyphens' });
+    return;
+  }
+
+  const existing = getSession(sessionId);
+  if (existing) {
+    res.status(200).json({ session: existing, alreadyExisted: true });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const sessionName = name?.trim() || `svampbase-${randomChars(8)}`;
+  const folderPath = createSessionFolder(sessionId, sessionName);
+
+  const session: Session = {
+    id: sessionId,
+    name: sessionName,
+    status: 'paused',
+    taskIds: taskIds ?? [],
+    folderPath,
+    createdAt: now,
+    updatedAt: now,
+    notes,
+  };
+
+  upsertSession(session);
+
+  if (launch) {
+    try {
+      resumeSession(session.id, session.folderPath);
+      session.lastLaunchedAt = new Date().toISOString();
+      session.status = 'active';
+      upsertSession(session);
+    } catch (err) {
+      console.error('Terminal launch failed:', err);
+    }
+  }
+
+  res.status(201).json({ session, alreadyExisted: false });
 });
 
 app.get('/sessions/:id', (req, res) => {
