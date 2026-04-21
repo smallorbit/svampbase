@@ -15,7 +15,7 @@ import type { Session, SessionStatus, SessionFile } from './types';
 const app = express();
 const PORT = 3001;
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
 app.use(express.json());
 
 // Serve session files statically
